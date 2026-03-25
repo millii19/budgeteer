@@ -127,6 +127,19 @@ class Storage:
             """
         ).fetchall()
 
+    def list_expenses_created_between(self, start_iso: str, end_iso: str) -> list[sqlite3.Row]:
+        return self.conn.execute(
+            """
+            SELECT id, transaction_date, recipient_name, iban, amount_cents, currency,
+                   category_path, comment, transaction_code, created_at
+            FROM expenses
+            WHERE datetime(created_at) >= datetime(?)
+              AND datetime(created_at) < datetime(?)
+            ORDER BY datetime(created_at) DESC, id DESC
+            """,
+            (start_iso, end_iso),
+        ).fetchall()
+
     def update_expense(
         self,
         expense_id: int,

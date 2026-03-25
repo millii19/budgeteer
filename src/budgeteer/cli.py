@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import csv
 import sys
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import questionary
@@ -93,6 +95,61 @@ def history(
     """Browse expense history and edit or delete records."""
     cfg = _load_runtime_config(config)
     _run_with_storage(cfg, expense_history_flow)
+
+
+@app.command("export-last-24h")
+def export_last_24h(
+    config: str | None = typer.Option(
+        None,
+        "--config",
+        "-c",
+        help="Path to runtime YAML config file",
+    ),
+    output: str | None = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="CSV output path (default: ./budgeteer-last-24h-YYYY-MM-DDTHHMM.csv)",
+    ),
+) -> None:
+    """Export expenses from the last 24 hours to CSV (excluding IBAN)."""
+    cfg = _load_runtime_config(config)
+
+    now_local = datetime.now().astimezone()
+    start_local = now_local - timedelta(hours=24)
+    end_iso = now_local.astimezone(UTC).isoformat(timespec="seconds")
+    start_iso = start_local.astimezone(UTC).isoformat(timespec="seconds")
+
+    default_name = now_local.strftime("budgeteer-last-24h-%Y-%m-%dT%H%M.csv")
+    output_path = Path(output).expanduser() if output else Path(default_name)
+
+    headers = [
+        "id",
+        "transaction_date",
+        "recipient_name",
+        "amount_cents",
+        "currency",
+        "category_path",
+        "comment",
+        "transaction_code",
+        "created_at",
+    ]
+
+    def _export(_cfg: AppConfig, storage: Storage) -> None:
+        rows = storage.list_expenses_created_between(start_iso, end_iso)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with output_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=headers)
+            writer.writeheader()
+            for row in rows:
+                writer.writerow({field: row[field] for field in headers})
+
+        console.print(
+            f"[green]Exported {len(rows)} expense(s) from the last 24h to {output_path}.[/green]"
+        )
+
+    _run_with_storage(cfg, _export)
 
 
 def main() -> None:

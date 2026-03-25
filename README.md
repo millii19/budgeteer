@@ -48,7 +48,17 @@ uv run budgeteer history
 ```
 
 ## Exporting Expenses
-You can export expenses for a certain time period from the db, no sensitive information is included (e.g. IBAN)
+You can export expenses from the last 24 hours to CSV. Sensitive banking details (IBAN) are not included.
+
+```bash
+uv run budgeteer export-last-24h
+```
+
+Optional output path:
+
+```bash
+uv run budgeteer export-last-24h --output /tmp/last24h.csv
+```
 
 
 ## Configuration
@@ -67,3 +77,8 @@ Only applies to CLI tool text.
 
 ### Categories and Subcategories
 Hierarchical chain of catagories.
+
+
+## Todo:
+ - Don't allow saving same transaction code -> warning
+ - when updating a transaction I want the transaction code also to be regenerated

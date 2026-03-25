@@ -42,6 +42,7 @@ def record_expense_flow(config: AppConfig, storage: Storage) -> bool:
         payload.recipient_name,
         payload.category_chain,
         payload.transaction_date.date(),
+        payload.comment,
     )
     transaction_code = storage.next_transaction_code(base_code)
 

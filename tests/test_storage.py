@@ -1,3 +1,4 @@
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from budgeteer.storage import Storage
@@ -96,5 +97,52 @@ def test_delete_expense_removes_record(tmp_path: Path) -> None:
 
         assert deleted is True
         assert storage.list_expenses() == []
+    finally:
+        storage.close()
+
+
+def test_list_expenses_created_between_filters_range(tmp_path: Path) -> None:
+    storage = _make_storage(tmp_path)
+    try:
+        storage.save_expense(
+            transaction_date="2026-03-25T09:00:00",
+            recipient_name="Older Vendor",
+            iban="DE00123456780000000001",
+            amount_cents=1111,
+            currency="EUR",
+            category_chain=["Operations", "Balls"],
+            comment="old",
+            transaction_code="OLDER-01",
+        )
+        storage.save_expense(
+            transaction_date="2026-03-25T10:00:00",
+            recipient_name="Recent Vendor",
+            iban="DE00123456780000000002",
+            amount_cents=2222,
+            currency="EUR",
+            category_chain=["Operations", "Venue"],
+            comment="recent",
+            transaction_code="RECENT-01",
+        )
+
+        now = datetime.now(UTC)
+        old_created = (now - timedelta(hours=30)).isoformat(timespec="seconds")
+        recent_created = (now - timedelta(hours=2)).isoformat(timespec="seconds")
+        with storage.conn:
+            storage.conn.execute(
+                "UPDATE expenses SET created_at = ? WHERE transaction_code = ?",
+                (old_created, "OLDER-01"),
+            )
+            storage.conn.execute(
+                "UPDATE expenses SET created_at = ? WHERE transaction_code = ?",
+                (recent_created, "RECENT-01"),
+            )
+
+        start = (now - timedelta(hours=24)).isoformat(timespec="seconds")
+        end = now.isoformat(timespec="seconds")
+        rows = storage.list_expenses_created_between(start, end)
+
+        assert len(rows) == 1
+        assert rows[0]["transaction_code"] == "RECENT-01"
     finally:
         storage.close()

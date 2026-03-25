@@ -16,14 +16,11 @@ def build_base_transaction_code(
     recipient_name: str,
     category_chain: list[str],
     transaction_date: date | datetime,
+    comment: str = "",
 ) -> str:
-    recipient = _tokenize(recipient_name, 8)
-
-    parent = _tokenize(category_chain[0], 4) if category_chain else ""
-    leaf = _tokenize(category_chain[-1], 4) if category_chain else ""
     day = transaction_date.strftime("%y%m%d")
 
-    parts = [p for p in [recipient, parent, leaf, day] if p]
+    parts = [p for p in [day, recipient_name, *category_chain, comment] if p]
     if not parts:
         return f"EXP-{day}"
-    return "-".join(parts)
+    return " - ".join(parts)

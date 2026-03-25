@@ -1,3 +1,5 @@
+import csv
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -291,3 +293,62 @@ def test_prompt_recipient_shows_options_on_start(monkeypatch) -> None:
     assert len(fake_question.application.pre_run_callables) == 1
     assert fake_question.buffer.start_completion_called is True
     assert fake_question.buffer.select_first_value is False
+
+
+def test_export_last_24h_writes_recent_rows_only(monkeypatch, tmp_path: Path) -> None:
+    cfg = _build_config(tmp_path)
+    calls: dict[str, object] = {}
+    _patch_load_config(monkeypatch, cfg, calls)
+
+    storage = Storage(Path(cfg.database_path))
+    try:
+        storage.save_expense(
+            transaction_date="2026-03-24T09:00:00",
+            recipient_name="Older Vendor",
+            iban="DE00123456780000000011",
+            amount_cents=1111,
+            currency="EUR",
+            category_chain=["Operations", "Venue"],
+            comment="older",
+            transaction_code="OLDER-01",
+        )
+        storage.save_expense(
+            transaction_date="2026-03-25T09:00:00",
+            recipient_name="Recent Vendor",
+            iban="DE00123456780000000022",
+            amount_cents=2222,
+            currency="EUR",
+            category_chain=["Operations", "Venue"],
+            comment="recent",
+            transaction_code="RECENT-01",
+        )
+
+        now = datetime.now(UTC)
+        old_created = (now - timedelta(hours=25)).isoformat(timespec="seconds")
+        recent_created = (now - timedelta(hours=1)).isoformat(timespec="seconds")
+        with storage.conn:
+            storage.conn.execute(
+                "UPDATE expenses SET created_at = ? WHERE transaction_code = ?",
+                (old_created, "OLDER-01"),
+            )
+            storage.conn.execute(
+                "UPDATE expenses SET created_at = ? WHERE transaction_code = ?",
+                (recent_created, "RECENT-01"),
+            )
+    finally:
+        storage.close()
+
+    output_path = tmp_path / "last24h.csv"
+    result = runner.invoke(app, ["export-last-24h", "--output", str(output_path)])
+
+    assert result.exit_code == 0
+    assert calls["config_path"] is None
+    assert output_path.exists()
+
+    with output_path.open("r", encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+
+    assert len(rows) == 1
+    assert rows[0]["transaction_code"] == "RECENT-01"
+    assert rows[0]["recipient_name"] == "Recent Vendor"
+    assert "iban" not in rows[0]
