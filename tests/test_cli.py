@@ -4,7 +4,7 @@ from typing import Any
 from typer.testing import CliRunner
 
 import budgeteer.cli as cli_module
-import budgeteer.interactive as interactive_module
+import budgeteer.interactive_components.prompts as prompts_module
 from budgeteer.cli import app
 from budgeteer.models import AppConfig
 from budgeteer.storage import Storage
@@ -55,9 +55,9 @@ def _patch_questionary_prompts(
     def fake_confirm(*args: Any, **kwargs: Any) -> PromptResult:
         return PromptResult(confirm_value)
 
-    monkeypatch.setattr(interactive_module.questionary, "text", fake_text)
-    monkeypatch.setattr(interactive_module.questionary, "select", fake_select)
-    monkeypatch.setattr(interactive_module.questionary, "confirm", fake_confirm)
+    monkeypatch.setattr(prompts_module.questionary, "text", fake_text)
+    monkeypatch.setattr(prompts_module.questionary, "select", fake_select)
+    monkeypatch.setattr(prompts_module.questionary, "confirm", fake_confirm)
 
 
 def test_record_expense_happy_path(monkeypatch, tmp_path: Path) -> None:
@@ -230,10 +230,10 @@ def test_prompt_recipient_autocomplete_refreshes_on_backspace(monkeypatch) -> No
     def fake_text(*args: Any, **kwargs: Any) -> PromptResult:
         return PromptResult("DE00123456780000000001")
 
-    monkeypatch.setattr(interactive_module.questionary, "autocomplete", fake_autocomplete)
-    monkeypatch.setattr(interactive_module.questionary, "text", fake_text)
+    monkeypatch.setattr(prompts_module.questionary, "autocomplete", fake_autocomplete)
+    monkeypatch.setattr(prompts_module.questionary, "text", fake_text)
 
-    name, iban = interactive_module._prompt_recipient(FakeStorage())
+    name, iban = prompts_module._prompt_recipient(FakeStorage())
 
     assert name == "Alpha Supplies"
     assert iban == "DE00123456780000000001"
@@ -281,10 +281,10 @@ def test_prompt_recipient_shows_options_on_start(monkeypatch) -> None:
     def fake_text(*args: Any, **kwargs: Any) -> PromptResult:
         return PromptResult("DE00123456780000000001")
 
-    monkeypatch.setattr(interactive_module.questionary, "autocomplete", fake_autocomplete)
-    monkeypatch.setattr(interactive_module.questionary, "text", fake_text)
+    monkeypatch.setattr(prompts_module.questionary, "autocomplete", fake_autocomplete)
+    monkeypatch.setattr(prompts_module.questionary, "text", fake_text)
 
-    name, iban = interactive_module._prompt_recipient(FakeStorage())
+    name, iban = prompts_module._prompt_recipient(FakeStorage())
 
     assert name == "Alpha Supplies"
     assert iban == "DE00123456780000000001"

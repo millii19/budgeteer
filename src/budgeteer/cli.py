@@ -1,16 +1,52 @@
 from __future__ import annotations
 
+import sys
+from collections.abc import Callable
 from pathlib import Path
 
+import questionary
 import typer
 from rich.console import Console
 
 from budgeteer.config import ensure_config_directory, load_config, resolve_config_path
-from budgeteer.interactive import expense_history_flow, record_expense_flow
+from budgeteer.interactive_components.history import expense_history_flow
+from budgeteer.interactive_components.record import record_expense_flow
+from budgeteer.models import AppConfig
 from budgeteer.storage import Storage
 
 app = typer.Typer(help="Budgeteer expense CLI", no_args_is_help=True)
 console = Console()
+
+
+def _load_runtime_config(config_path: str | None) -> AppConfig:
+    """Load runtime config and print setup guidance when missing."""
+    try:
+        return load_config(config_path)
+    except FileNotFoundError as exc:
+        resolved_path = resolve_config_path(config_path)
+        ensure_config_directory(resolved_path)
+        console.print(f"[red]{exc}[/red]")
+        console.print(
+            "Create a config file first, for example:\n"
+            f"  cp config.example.yaml {resolved_path}"
+        )
+        raise typer.Exit(code=1) from exc
+
+
+def _run_with_storage(
+    config: AppConfig,
+    flow: Callable[[AppConfig, Storage], object],
+) -> None:
+    """Open storage, execute an interactive flow, and close resources safely."""
+    db_path = Path(config.database_path).expanduser()
+
+    storage = Storage(db_path)
+    try:
+        flow(config, storage)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Cancelled.[/yellow]")
+    finally:
+        storage.close()
 
 
 @app.callback()
@@ -28,27 +64,21 @@ def record_expense(
     ),
 ) -> None:
     """Record an expense through an interactive prompt flow."""
-    try:
-        cfg = load_config(config)
-    except FileNotFoundError as exc:
-        config_path = resolve_config_path(config)
-        ensure_config_directory(config_path)
-        console.print(f"[red]{exc}[/red]")
-        console.print(
-            "Create a config file first, for example:\n"
-            f"  cp config.example.yaml {config_path}"
-        )
-        raise typer.Exit(code=1) from exc
+    cfg = _load_runtime_config(config)
 
-    db_path = Path(cfg.database_path).expanduser()
+    def _record_expense_loop(current_cfg: AppConfig, storage: Storage) -> None:
+        while True:
+            saved = record_expense_flow(current_cfg, storage)
+            if not saved:
+                return
+            if not (sys.stdin.isatty() and sys.stdout.isatty()):
+                return
 
-    storage = Storage(db_path)
-    try:
-        record_expense_flow(cfg, storage)
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Cancelled.[/yellow]")
-    finally:
-        storage.close()
+            again = questionary.confirm("Record another expense?", default=False).ask()
+            if not again:
+                return
+
+    _run_with_storage(cfg, _record_expense_loop)
 
 
 @app.command("history")
@@ -61,27 +91,8 @@ def history(
     ),
 ) -> None:
     """Browse expense history and edit or delete records."""
-    try:
-        cfg = load_config(config)
-    except FileNotFoundError as exc:
-        config_path = resolve_config_path(config)
-        ensure_config_directory(config_path)
-        console.print(f"[red]{exc}[/red]")
-        console.print(
-            "Create a config file first, for example:\n"
-            f"  cp config.example.yaml {config_path}"
-        )
-        raise typer.Exit(code=1) from exc
-
-    db_path = Path(cfg.database_path).expanduser()
-
-    storage = Storage(db_path)
-    try:
-        expense_history_flow(cfg, storage)
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Cancelled.[/yellow]")
-    finally:
-        storage.close()
+    cfg = _load_runtime_config(config)
+    _run_with_storage(cfg, expense_history_flow)
 
 
 def main() -> None:
