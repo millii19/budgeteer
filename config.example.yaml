@@ -1,0 +1,17 @@
+language: EN
+currency: EUR
+database_path: .budgeteer/budgeteer.db
+categories:
+  Operations:
+    Venue:
+      - Court Rental
+      - Equipment Storage
+    Equipment:
+      - Balls
+      - Nets
+  Events:
+    - Tournament Fees
+    - Referees
+  Administration:
+    - Insurance
+    - Banking Fees
