@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, datetime
 
 TOKEN_RE = re.compile(r"[A-Za-z0-9]+")
 
@@ -15,7 +15,7 @@ def _tokenize(text: str, max_len: int) -> str:
 def build_base_transaction_code(
     recipient_name: str,
     category_chain: list[str],
-    transaction_date: date,
+    transaction_date: date | datetime,
 ) -> str:
     recipient = _tokenize(recipient_name, 8)
 

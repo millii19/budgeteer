@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -54,7 +54,7 @@ class Storage:
         ).fetchone()
 
     def upsert_recipient(self, name: str, iban: str) -> None:
-        now = datetime.utcnow().isoformat(timespec="seconds")
+        now = datetime.now(UTC).isoformat(timespec="seconds")
         self.conn.execute(
             """
             INSERT INTO recipients(name, iban, last_used)
@@ -92,7 +92,7 @@ class Storage:
         comment: str,
         transaction_code: str,
     ) -> None:
-        now = datetime.utcnow().isoformat(timespec="seconds")
+        now = datetime.now(UTC).isoformat(timespec="seconds")
         category_path = " > ".join(category_chain)
 
         with self.conn:
@@ -116,6 +116,59 @@ class Storage:
                     now,
                 ),
             )
+
+    def list_expenses(self) -> list[sqlite3.Row]:
+        return self.conn.execute(
+            """
+            SELECT id, transaction_date, recipient_name, iban, amount_cents, currency,
+                   category_path, comment, transaction_code, created_at
+            FROM expenses
+            ORDER BY datetime(created_at) DESC, id DESC
+            """
+        ).fetchall()
+
+    def update_expense(
+        self,
+        expense_id: int,
+        transaction_date: str,
+        recipient_name: str,
+        iban: str,
+        amount_cents: int,
+        category_chain: list[str],
+        comment: str,
+    ) -> bool:
+        category_path = " > ".join(category_chain)
+
+        with self.conn:
+            self.upsert_recipient(recipient_name, iban)
+            result = self.conn.execute(
+                """
+                UPDATE expenses
+                SET transaction_date = ?,
+                    recipient_name = ?,
+                    iban = ?,
+                    amount_cents = ?,
+                    category_path = ?,
+                    comment = ?
+                WHERE id = ?
+                """,
+                (
+                    transaction_date,
+                    recipient_name,
+                    iban,
+                    amount_cents,
+                    category_path,
+                    comment,
+                    expense_id,
+                ),
+            )
+
+        return result.rowcount > 0
+
+    def delete_expense(self, expense_id: int) -> bool:
+        with self.conn:
+            result = self.conn.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
+        return result.rowcount > 0
 
     def close(self) -> None:
         self.conn.close()

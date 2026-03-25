@@ -32,7 +32,7 @@ uvx --from . budgeteer record-expense
 ## Recording an expense
 Interactive cli tool that records an expense and generates a useful transaction code to be appended to the bank transaction
  - Interactive screen to enter the required fields:
-   - date of transaction: default today in YYYY-MM-DD format
+   - datetime of transaction: default current timestamp in YYYY-MM-DDTHH:MM:SS format
    - name of recipient: store past recipients and offer autocomplete, sort by last time used and filter by entered characters
    - IBAN: confirm the recipients IBAN if selected from the list or enter it if it's a new recipient
    - amount: accepts both , and . as comma
@@ -40,6 +40,12 @@ Interactive cli tool that records an expense and generates a useful transaction 
    - comment: empty by default, not required
  - will append the expense to a sqlite file
 
+## Viewing Expense History
+You can also view the past recorded expenses sorted by record-time. From there you can delete or edit a record.
+
+```bash
+uv run budgeteer history
+```
 
 ## Exporting Expenses
 You can export expenses for a certain time period from the db, no sensitive information is included (e.g. IBAN)

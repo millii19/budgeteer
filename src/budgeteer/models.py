@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -14,7 +14,7 @@ class AppConfig(BaseModel):
 
 
 class ExpenseInput(BaseModel):
-    transaction_date: date
+    transaction_date: datetime
     recipient_name: str
     iban: str
     amount_cents: int
