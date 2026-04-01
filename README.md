@@ -82,3 +82,4 @@ Hierarchical chain of catagories.
 ## Todo:
  - Don't allow saving same transaction code -> warning
  - when updating a transaction I want the transaction code also to be regenerated
+ - as website with file upload and forms integration?
